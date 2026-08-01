@@ -1,0 +1,2 @@
+-- Account-specific sample task and completion records were removed from the
+-- public source export. This migration is intentionally data-free.

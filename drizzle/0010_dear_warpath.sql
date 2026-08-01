@@ -1,0 +1,1 @@
+ALTER TABLE `user_settings` ADD `bear_personality` text DEFAULT 'warm' NOT NULL;

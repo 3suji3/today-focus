@@ -1,0 +1,1 @@
+CREATE INDEX `tasks_owner_schedule_idx` ON `tasks` (`owner_email`,`archived_at`,`scheduled_date`);

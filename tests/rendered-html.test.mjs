@@ -64,3 +64,14 @@ test("refreshes the visible calendar immediately after adding a signed-in task",
   assert.match(calendar, /cache: "no-store"/);
   assert.match(calendar, /\[month, signedIn, reloadKey, refreshRevision\]/);
 });
+
+test("defers calendar reads and batches the initial dashboard queries", async () => {
+  const [dashboard, taskRoute] = await Promise.all([
+    readFile(new URL("../app/dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.doesNotMatch(dashboard, /setTimeout\(\(\) => prefetchHistoryMonth/);
+  assert.match(dashboard, /onPointerEnter=.*prefetchHistoryMonth/);
+  assert.match(taskRoute, /await db\.batch\(\[/);
+  assert.match(taskRoute, /notExists\(/);
+});

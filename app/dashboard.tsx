@@ -301,12 +301,6 @@ export default function Dashboard({
   }, []);
 
   useEffect(() => {
-    if (!signedIn) return;
-    const timer = window.setTimeout(() => prefetchHistoryMonth(todayDate.slice(0, 7)), 500);
-    return () => window.clearTimeout(timer);
-  }, [signedIn, todayDate]);
-
-  useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 3000);
     return () => window.clearTimeout(timer);

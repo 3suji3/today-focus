@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull, notExists, sql } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
 import { categoryFeedback, stoneRewards, taskCompletions, taskSkips, tasks, userSettings } from "../../../db/schema";
@@ -22,18 +22,39 @@ export async function GET() {
   const db = getDb();
   const today = kstDateKey();
   const weekStartedAt = startOfCurrentWeekKst();
-  const [items, completions, skips, settings, stoneStats] = await Promise.all([
-    db.select().from(tasks).where(and(eq(tasks.ownerEmail, user.email), isNull(tasks.archivedAt))).orderBy(desc(tasks.updatedAt)).limit(100),
-    db.select({ taskId: taskCompletions.taskId }).from(taskCompletions)
-      .where(and(eq(taskCompletions.ownerEmail, user.email), eq(taskCompletions.dateKey, today))),
-    db.select({ taskId: taskSkips.taskId }).from(taskSkips)
-      .where(and(eq(taskSkips.ownerEmail, user.email), eq(taskSkips.dateKey, today))),
-    db.select().from(userSettings).where(eq(userSettings.ownerEmail, user.email)).limit(1),
-    readStoneStats(db, user.email, weekStartedAt),
+  const taskQuery = db.select().from(tasks).where(and(
+    eq(tasks.ownerEmail, user.email),
+    isNull(tasks.archivedAt),
+    notExists(
+      db.select({ value: sql<number>`1` }).from(taskSkips).where(and(
+        eq(taskSkips.taskId, tasks.id),
+        eq(taskSkips.ownerEmail, user.email),
+        eq(taskSkips.dateKey, today),
+      )),
+    ),
+  )).orderBy(desc(tasks.updatedAt)).limit(100);
+  const completionQuery = db.select({
+    current: count(),
+    weekly: sql<number>`coalesce(sum(case when ${taskCompletions.completedAt} >= ${weekStartedAt} then 1 else 0 end), 0)`,
+    completedTodayTaskIds: sql<string | null>`group_concat(case when ${taskCompletions.dateKey} = ${today} then ${taskCompletions.taskId} end)`,
+  }).from(taskCompletions).where(eq(taskCompletions.ownerEmail, user.email));
+  const settingsQuery = db.select().from(userSettings)
+    .where(eq(userSettings.ownerEmail, user.email))
+    .limit(1);
+  const [items, completionRows, settings] = await db.batch([
+    taskQuery,
+    completionQuery,
+    settingsQuery,
   ]);
+  const completionSnapshot = completionRows[0] ?? {
+    current: 0,
+    weekly: 0,
+    completedTodayTaskIds: null,
+  };
   const userSetting = settings[0];
-  const completedToday = new Set(completions.map((item) => item.taskId));
-  const skippedToday = new Set(skips.map((item) => item.taskId));
+  const completedToday = new Set(
+    (completionSnapshot.completedTodayTaskIds ?? "").split(",").filter(Boolean),
+  );
   const seenTemplateTitles = new Set<string>();
   const taskTemplates = items.flatMap((item) => {
     const normalized = normalizeTitle(item.title);
@@ -42,7 +63,7 @@ export async function GET() {
     return [{ title: item.title, category: item.category, minutes: item.minutes }];
   }).slice(0, 60);
   const visibleItems = items
-    .filter((item) => isTaskUpcoming(item, today) && !(isTaskVisibleOnDate(item, today) && skippedToday.has(item.id)))
+    .filter((item) => isTaskUpcoming(item, today))
     .map((item) => {
       const isToday = isTaskVisibleOnDate(item, today);
       return { ...item, isToday, done: isToday && completedToday.has(item.id), completedAt: null };
@@ -53,7 +74,11 @@ export async function GET() {
     taskTemplates,
     todayDate: today,
     energy: userSetting?.energy ?? "보통",
-    stoneStats,
+    stoneStats: {
+      current: Number(completionSnapshot.current ?? 0),
+      weekly: Number(completionSnapshot.weekly ?? 0),
+      weekStartedAt,
+    },
     recommendationSettings: {
       mode: userSetting?.recommendationMode ?? "auto",
       availableMinutes: userSetting?.availableMinutes ?? 90,
@@ -401,13 +426,13 @@ function startOfCurrentWeekKst(now = Date.now()) {
 }
 
 async function readStoneStats(db: ReturnType<typeof getDb>, ownerEmail: string, weekStartedAt: number) {
-  const [currentRows, weeklyRows] = await Promise.all([
-    db.select({ value: count() }).from(taskCompletions).where(eq(taskCompletions.ownerEmail, ownerEmail)),
-    db.select({ value: count() }).from(taskCompletions).where(and(eq(taskCompletions.ownerEmail, ownerEmail), gte(taskCompletions.completedAt, weekStartedAt))),
-  ]);
+  const [summary] = await db.select({
+    current: count(),
+    weekly: sql<number>`coalesce(sum(case when ${taskCompletions.completedAt} >= ${weekStartedAt} then 1 else 0 end), 0)`,
+  }).from(taskCompletions).where(eq(taskCompletions.ownerEmail, ownerEmail));
   return {
-    current: currentRows[0]?.value ?? 0,
-    weekly: weeklyRows[0]?.value ?? 0,
+    current: Number(summary?.current ?? 0),
+    weekly: Number(summary?.weekly ?? 0),
     weekStartedAt,
   };
 }

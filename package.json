@@ -13,6 +13,7 @@
     "test": "npm run build && node --test tests/rendered-html.test.mjs tests/bear-personality.test.ts tests/classification.test.ts tests/korean-line-break.test.ts tests/korean-vocative.test.ts tests/rate-limit.test.ts tests/recommendation.test.ts tests/share-reuse.test.ts tests/stone-achievements.test.ts tests/stone-catalog.test.ts tests/task-reason.test.ts tests/task-schedule.test.ts tests/task-suggestions.test.ts tests/today-mood.test.ts",
     "validate:artifact": "bash scripts/validate-artifact.sh",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
+    "test:load": "node scripts/load-test.mjs",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
   },
   "dependencies": {

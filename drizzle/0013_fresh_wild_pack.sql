@@ -1,0 +1,1 @@
+ALTER TABLE `user_settings` ADD `leaderboard_opt_in` integer DEFAULT false NOT NULL;

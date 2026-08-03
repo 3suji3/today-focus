@@ -6,6 +6,7 @@ import { categories, classifyTask, normalizeTitle, type Category } from "../lib/
 import { orderTodayTasks, type RecommendationSettings } from "../lib/recommendation";
 import StoneGrowth, { stoneStageCollection, visibleStoneCount, type StoneStageKey, type StoneStats } from "./stone-growth";
 import HistoryCalendar, { prefetchHistoryMonth } from "./history-calendar";
+import Leaderboard from "./leaderboard";
 import { getMascotVariant, getTodayMood } from "../lib/today-mood";
 import SafeImage from "./safe-image";
 import StoneShareVisual from "./stone-share-visual";
@@ -94,7 +95,7 @@ const initialTasks: Task[] = [
 
 const energyOrder: Energy[] = ["낮음", "보통", "높음"];
 const energyDescriptions: Record<Energy, string> = { 낮음: "짧고 가벼운 일부터 추천해", 보통: "시간과 분류를 균형 있게 섞어", 높음: "긴 집중 작업을 먼저 추천해" };
-const defaultRecommendationSettings: RecommendationSettings = { mode: "auto", availableMinutes: 90, customTaskCount: 3, preferredName: "", strategy: "balanced", preferredCategory: "" };
+const defaultRecommendationSettings: RecommendationSettings = { mode: "auto", availableMinutes: 90, customTaskCount: 3, preferredName: "", leaderboardOptIn: false, strategy: "balanced", preferredCategory: "" };
 const personalityStorageKey = "today-focus-bear-personality";
 const personalitySyncKey = "today-focus-bear-personality-needs-sync";
 const tooltipStorageKey = "today-focus-button-tooltips";
@@ -182,7 +183,7 @@ export default function Dashboard({
     () =>
       activeTab === "오늘"
         ? orderedToday
-        : activeTab === "기록"
+        : activeTab === "기록" || activeTab === "랭킹"
           ? []
         : tasks.filter((task) => task.category === activeTab),
     [activeTab, orderedToday, tasks],
@@ -681,6 +682,7 @@ export default function Dashboard({
       availableMinutes: Math.max(15, Math.min(480, Math.round(settingsDraft.availableMinutes || 90))),
       customTaskCount: Math.max(1, Math.min(5, Math.round(settingsDraft.customTaskCount || 3))),
       preferredName: settingsDraft.preferredName.trim().slice(0, 20),
+      leaderboardOptIn: settingsDraft.leaderboardOptIn,
       strategy: settingsDraft.strategy,
       preferredCategory: settingsDraft.preferredCategory,
     };
@@ -695,6 +697,7 @@ export default function Dashboard({
             availableMinutes: next.availableMinutes,
             customTaskCount: next.customTaskCount,
             preferredName: next.preferredName,
+            leaderboardOptIn: next.leaderboardOptIn,
             recommendationStrategy: next.strategy,
             preferredCategory: next.preferredCategory,
           }),
@@ -864,7 +867,7 @@ export default function Dashboard({
           오늘 뭐하지?<span className="brand-dot" />
         </a>
         <nav className="tabs" aria-label="할 일 분류">
-          {["오늘", ...categories, "기록"].map((tab) => (
+          {["오늘", ...categories, "기록", "랭킹"].map((tab) => (
             <button
               className={activeTab === tab ? "tab active" : "tab"}
               key={tab}
@@ -904,7 +907,7 @@ export default function Dashboard({
         <nav className="mobile-nav" id="mobile-category-nav" aria-label="모바일 할 일 분류">
           <p><strong>{activeTab}</strong> 목록을 보고 있어</p>
           <div>
-            {["오늘", ...categories, "기록"].map((tab) => (
+            {["오늘", ...categories, "기록", "랭킹"].map((tab) => (
               <button
                 type="button"
                 className={activeTab === tab ? "active" : ""}
@@ -914,7 +917,7 @@ export default function Dashboard({
                 onFocus={() => { if (tab === "기록" && signedIn) prefetchHistoryMonth(todayDate.slice(0, 7)); }}
                 onClick={() => selectTab(tab)}
               >
-                <span aria-hidden="true">{tab === "오늘" ? "☀" : tab === "기록" ? "✦" : "•"}</span>
+                <span aria-hidden="true">{tab === "오늘" ? "☀" : tab === "기록" ? "✦" : tab === "랭킹" ? "♛" : "•"}</span>
                 {tab}
               </button>
             ))}
@@ -960,7 +963,7 @@ export default function Dashboard({
             </div>
           </div>
 
-          {activeTab === "기록" ? <HistoryCalendar signedIn={signedIn} stoneTotal={stoneStats.current} refreshRevision={historyRevision} onStoneStatsChange={syncHistoryStoneStats} /> : <><div className="task-carousel"><ol className="task-list" aria-live="polite">
+          {activeTab === "기록" ? <HistoryCalendar signedIn={signedIn} stoneTotal={stoneStats.current} refreshRevision={historyRevision} onStoneStatsChange={syncHistoryStoneStats} /> : activeTab === "랭킹" ? <Leaderboard signedIn={signedIn} preferredName={recommendationSettings.preferredName} optIn={recommendationSettings.leaderboardOptIn} onSettingsChange={(preferredName, leaderboardOptIn) => { setDisplayName(preferredName || initialName); setRecommendationSettings((settings) => ({ ...settings, preferredName, leaderboardOptIn })); setSettingsDraft((settings) => ({ ...settings, preferredName, leaderboardOptIn })); }} /> : <><div className="task-carousel"><ol className="task-list" aria-live="polite">
             {filteredTasks.length === 0 && (
               <li className="empty-task">
                 <span aria-hidden="true">✦</span>
@@ -1195,6 +1198,7 @@ export default function Dashboard({
                   <span>곰이 불러줄 이름</span>
                   <input value={settingsDraft.preferredName} maxLength={20} placeholder={initialName} onChange={(event) => setSettingsDraft((draft) => ({ ...draft, preferredName: event.target.value }))} />
                 </label>
+                <label className="leaderboard-setting"><input type="checkbox" checked={settingsDraft.leaderboardOptIn} onChange={(event) => setSettingsDraft((draft) => ({ ...draft, leaderboardOptIn: event.target.checked }))} /><span><strong>닉네임으로 랭킹 참여</strong><small>이메일과 할 일 내용은 공개하지 않아.</small></span></label>
                 <fieldset className="recommend-mode-field">
                   <legend>오늘 할 일 개수</legend>
                   <div className="recommend-mode-options">

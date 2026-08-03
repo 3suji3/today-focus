@@ -97,6 +97,7 @@ export default function HistoryCalendar({
   const [loadError, setLoadError] = useState("");
   const [isRecordOpen, setIsRecordOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [updatingEntryKey, setUpdatingEntryKey] = useState("");
   const [recordDraft, setRecordDraft] = useState({ title: "", category: "프로젝트" as Category, minutes: 30, done: true });
   const [notice, setNotice] = useState("");
 
@@ -215,6 +216,32 @@ export default function HistoryCalendar({
     }
   }
 
+  async function changePastStatus(entry: HistoryEntry) {
+    const key = `${entry.id}:${entry.dateKey}`;
+    if (updatingEntryKey) return;
+    setUpdatingEntryKey(key);
+    try {
+      const response = await fetch("/api/history", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ taskId: entry.id, dateKey: entry.dateKey, done: !entry.done }),
+      });
+      const data = await response.json() as { error?: string; done?: boolean; stoneStats?: StoneStats; stoneAwarded?: boolean };
+      if (!response.ok) throw new Error(data.error ?? "상태를 바꾸지 못했어.");
+      setEntries((current) => {
+        const next = current.map((item) => item.id === entry.id && item.dateKey === entry.dateKey ? { ...item, done: data.done === true } : item);
+        historyCache.set(month, { entries: next, fetchedAt: Date.now() });
+        return next;
+      });
+      if (data.stoneStats) onStoneStatsChange?.(data.stoneStats, data.stoneAwarded === true);
+      setNotice(data.done ? "이 날의 일정을 완료로 바꿨어." : "이 날의 일정을 미완료로 바꿨어.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "상태를 바꾸지 못했어.");
+    } finally {
+      setUpdatingEntryKey("");
+    }
+  }
+
   return (
     <><section className="history-card" aria-label="일정 기록 달력">
       <div className="calendar-toolbar">
@@ -262,7 +289,7 @@ export default function HistoryCalendar({
       <div className="day-record">
         <div><strong>{Number(selectedDate.slice(5, 7))}월 {Number(selectedDate.slice(8))}일 일정과 기록</strong><span>{selectedEntries.filter((entry) => entry.done).length}/{selectedEntries.length} 완료</span></div>
         {selectedEntries.length ? (
-          <ul>{selectedEntries.map((entry) => { const stoneIndex = entry.done ? unlockedStoneIndex(`${entry.id}:${entry.dateKey}`, stoneTotal) : null; return <li key={`${entry.id}-${entry.dateKey}`}>{stoneIndex === null ? <span className="record-pebble" aria-hidden="true">·﹏·</span> : <StoneFace index={stoneIndex} className="record-pebble" ariaHidden />}<div><span className={`category category-${entry.category}`}>{entry.category}</span><strong>{entry.title}</strong><small>{entry.recurrence === "daily" ? entry.scheduledEndDate ? "기간 반복 · " : "매일 반복 · " : ""}{entry.minutes}분</small></div><b className={entry.done ? "done" : ""}>{entry.done ? "완료" : "미완료"}</b></li>; })}</ul>
+          <ul>{selectedEntries.map((entry) => { const entryKey = `${entry.id}:${entry.dateKey}`; const isUpdating = updatingEntryKey === entryKey; const stoneIndex = entry.done ? unlockedStoneIndex(entryKey, stoneTotal) : null; return <li key={`${entry.id}-${entry.dateKey}`}>{stoneIndex === null ? <span className="record-pebble" aria-hidden="true">·﹏·</span> : <StoneFace index={stoneIndex} className="record-pebble" ariaHidden />}<div><span className={`category category-${entry.category}`}>{entry.category}</span><strong>{entry.title}</strong><small>{entry.recurrence === "daily" ? entry.scheduledEndDate ? "기간 반복 · " : "매일 반복 · " : ""}{entry.minutes}분</small></div>{signedIn && selectedDate < today ? <button className={`record-status-button${entry.done ? " done" : ""}`} disabled={Boolean(updatingEntryKey)} onClick={() => changePastStatus(entry)}>{isUpdating ? "변경 중…" : entry.done ? "완료 ✓" : "미완료"}</button> : <b className={entry.done ? "done" : ""}>{entry.done ? "완료" : "미완료"}</b>}</li>; })}</ul>
         ) : <p className="record-empty"><span>○</span> 이 날짜에는 표시할 일정이 없어.</p>}
         {signedIn && selectedDate < today && <button className="past-record-button" onClick={() => setIsRecordOpen(true)}>＋ 지난 기록 추가</button>}
       </div>

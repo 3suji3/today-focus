@@ -4,7 +4,7 @@ import { getDb } from "../../../db";
 import { taskCompletions, taskSkips, tasks } from "../../../db/schema";
 import { categories, type Category } from "../../../lib/classification";
 import { checkWriteRateLimit } from "../../../lib/rate-limit";
-import { addDaysDateKey, dateKeysInRange, isValidDateKey, kstDateKey, monthRange, taskStartDate } from "../../../lib/task-schedule";
+import { addDaysDateKey, completionId, dateKeysInRange, isValidDateKey, kstDateKey, monthRange, taskStartDate } from "../../../lib/task-schedule";
 import { STONE_VARIANT_COUNT } from "../../stone-catalog";
 
 const allowedCategories = new Set<string>(categories);
@@ -173,6 +173,51 @@ export async function POST(request: Request) {
     },
     stoneAwarded: done,
   }, { status: 201 });
+}
+
+export async function PATCH(request: Request) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "로그인이 필요해요." }, { status: 401 });
+  const rateLimit = checkWriteRateLimit(user.email);
+  if (!rateLimit.allowed) return Response.json({ error: "잠깐만 쉬었다가 다시 바꿔줘." }, { status: 429, headers: { "retry-after": String(rateLimit.retryAfterSeconds) } });
+
+  const payload = (await request.json()) as { taskId?: string; dateKey?: string; done?: boolean };
+  const today = kstDateKey();
+  if (!payload.taskId || !isValidDateKey(payload.dateKey) || payload.dateKey >= today || typeof payload.done !== "boolean") {
+    return Response.json({ error: "지난 날짜와 변경할 상태를 다시 확인해줘." }, { status: 400 });
+  }
+
+  const db = getDb();
+  const [task] = await db.select({ id: tasks.id }).from(tasks)
+    .where(and(eq(tasks.id, payload.taskId), eq(tasks.ownerEmail, user.email), isNull(tasks.archivedAt)))
+    .limit(1);
+  if (!task) return Response.json({ error: "일정을 찾을 수 없어요." }, { status: 404 });
+
+  const dateKey = payload.dateKey;
+  const key = completionId(task.id, dateKey);
+  const completedAt = Date.parse(`${dateKey}T20:00:00+09:00`);
+  let changed = false;
+  if (payload.done) {
+    const inserted = await db.insert(taskCompletions).values({ id: key, taskId: task.id, ownerEmail: user.email, dateKey, completedAt, stoneVariant: stableVariant(key) })
+      .onConflictDoNothing({ target: taskCompletions.id }).returning({ id: taskCompletions.id });
+    changed = inserted.length > 0;
+  } else {
+    const removed = await db.delete(taskCompletions)
+      .where(and(eq(taskCompletions.id, key), eq(taskCompletions.ownerEmail, user.email)))
+      .returning({ id: taskCompletions.id });
+    changed = removed.length > 0;
+  }
+
+  const weekStartedAt = startOfCurrentWeekKst();
+  const [currentRows, weeklyRows] = await Promise.all([
+    db.select({ value: count() }).from(taskCompletions).where(eq(taskCompletions.ownerEmail, user.email)),
+    db.select({ value: count() }).from(taskCompletions).where(and(eq(taskCompletions.ownerEmail, user.email), gte(taskCompletions.completedAt, weekStartedAt))),
+  ]);
+  return Response.json({
+    taskId: task.id, dateKey, done: payload.done, stoneVariant: stableVariant(key),
+    stoneStats: { current: currentRows[0]?.value ?? 0, weekly: weeklyRows[0]?.value ?? 0, weekStartedAt },
+    stoneAwarded: payload.done && changed, stoneRemoved: !payload.done && changed,
+  });
 }
 
 function stableVariant(value: string) {

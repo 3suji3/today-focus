@@ -3,6 +3,7 @@ export type RecommendationSettings = {
   availableMinutes: number;
   customTaskCount: number;
   preferredName: string;
+  leaderboardOptIn: boolean;
   strategy: "balanced" | "quick" | "focus";
   preferredCategory: "" | "취업" | "공부" | "프로젝트" | "일상" | "기타";
 };

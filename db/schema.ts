@@ -71,6 +71,7 @@ export const userSettings = sqliteTable("user_settings", {
   preferredCategory: text("preferred_category", { enum: ["취업", "공부", "프로젝트", "일상", "기타"] }),
   selectedStoneStage: text("selected_stone_stage", { enum: ["auto", "first", "friends", "pile", "picnic", "basket", "greenhouse", "cart", "cafe", "garden", "village", "sparklePile", "bigBasket", "carriage", "starGarden", "moonIsland", "cloudLibrary", "candyFountain", "auroraStation", "whaleTheater", "galaxyBridge", "gemCamp", "constellationPark", "goldenPalace", "stoneKingdom"] }).notNull().default("auto"),
   preferredName: text("preferred_name"),
+  leaderboardOptIn: integer("leaderboard_opt_in", { mode: "boolean" }).notNull().default(false),
   updatedAt: integer("updated_at").notNull(),
 });
 

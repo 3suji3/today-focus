@@ -84,6 +84,7 @@ export async function GET() {
       availableMinutes: userSetting?.availableMinutes ?? 90,
       customTaskCount: userSetting?.customTaskCount ?? 3,
       preferredName: userSetting?.preferredName ?? "",
+      leaderboardOptIn: userSetting?.leaderboardOptIn ?? false,
       strategy: userSetting?.recommendationStrategy ?? "balanced",
       preferredCategory: userSetting?.preferredCategory ?? "",
     },
@@ -177,6 +178,7 @@ export async function PATCH(request: Request) {
     availableMinutes?: number;
     customTaskCount?: number;
     preferredName?: string;
+    leaderboardOptIn?: boolean;
     recurrence?: string;
     scheduledDate?: string;
     scheduledEndDate?: string | null;
@@ -192,7 +194,7 @@ export async function PATCH(request: Request) {
     (payload.energy && allowedEnergy.has(payload.energy)) ||
     payload.recommendationMode === "auto" || payload.recommendationMode === "custom" ||
     typeof payload.availableMinutes === "number" || typeof payload.customTaskCount === "number" ||
-    typeof payload.preferredName === "string" || allowedStrategies.has(payload.recommendationStrategy ?? "") ||
+    typeof payload.preferredName === "string" || typeof payload.leaderboardOptIn === "boolean" || allowedStrategies.has(payload.recommendationStrategy ?? "") ||
     allowedCategories.has(payload.preferredCategory ?? "") || payload.preferredCategory === "" ||
     isBearPersonality(payload.bearPersonality) ||
     allowedStoneStages.has(payload.selectedStoneStage as StoneStageKey)
@@ -207,6 +209,7 @@ export async function PATCH(request: Request) {
       availableMinutes: typeof payload.availableMinutes === "number" ? clamp(payload.availableMinutes, 15, 480) : current?.availableMinutes ?? 90,
       customTaskCount: typeof payload.customTaskCount === "number" ? clamp(payload.customTaskCount, 1, 5) : current?.customTaskCount ?? 3,
       preferredName: typeof payload.preferredName === "string" ? payload.preferredName.trim().slice(0, 20) || null : current?.preferredName ?? null,
+      leaderboardOptIn: typeof payload.leaderboardOptIn === "boolean" ? payload.leaderboardOptIn : current?.leaderboardOptIn ?? false,
       recommendationStrategy: allowedStrategies.has(payload.recommendationStrategy ?? "") ? payload.recommendationStrategy as "balanced" | "quick" | "focus" : current?.recommendationStrategy ?? "balanced" as const,
       preferredCategory: allowedCategories.has(payload.preferredCategory ?? "") ? payload.preferredCategory as Category : payload.preferredCategory === "" ? null : current?.preferredCategory ?? null,
       selectedStoneStage: allowedStoneStages.has(payload.selectedStoneStage as StoneStageKey) ? payload.selectedStoneStage as StoneStageKey : current?.selectedStoneStage ?? "auto" as const,
@@ -222,6 +225,7 @@ export async function PATCH(request: Request) {
           availableMinutes: next.availableMinutes,
           customTaskCount: next.customTaskCount,
           preferredName: next.preferredName,
+          leaderboardOptIn: next.leaderboardOptIn,
           recommendationStrategy: next.recommendationStrategy,
           preferredCategory: next.preferredCategory,
           selectedStoneStage: next.selectedStoneStage,
@@ -236,6 +240,7 @@ export async function PATCH(request: Request) {
         availableMinutes: next.availableMinutes,
         customTaskCount: next.customTaskCount,
         preferredName: next.preferredName ?? "",
+        leaderboardOptIn: next.leaderboardOptIn,
         strategy: next.recommendationStrategy,
         preferredCategory: next.preferredCategory ?? "",
       },

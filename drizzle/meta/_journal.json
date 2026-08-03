@@ -92,6 +92,13 @@
       "when": 1785567541077,
       "tag": "0012_fine_grandmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1785741660079,
+      "tag": "0013_fresh_wild_pack",
+      "breakpoints": true
     }
   ]
 }

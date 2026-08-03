@@ -75,3 +75,37 @@ test("defers calendar reads and batches the initial dashboard queries", async ()
   assert.match(taskRoute, /await db\.batch\(\[/);
   assert.match(taskRoute, /notExists\(/);
 });
+
+test("lets signed-in users edit only their own past completion status", async () => {
+  const [calendar, historyRoute] = await Promise.all([
+    readFile(new URL("../app/history-calendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/history/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(calendar, /method: "PATCH"/);
+  assert.match(calendar, /변경 중…/);
+  assert.match(historyRoute, /payload\.dateKey >= today/);
+  assert.match(historyRoute, /eq\(tasks\.ownerEmail, user\.email\)/);
+  assert.match(historyRoute, /onConflictDoNothing/);
+});
+
+test("keeps ranking opt-in, private, lazy, and visibly loading", async () => {
+  const [dashboard, leaderboard, route] = await Promise.all([
+    readFile(new URL("../app/dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/leaderboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/leaderboard/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(dashboard, /activeTab === "랭킹" \? <Leaderboard/);
+  assert.match(leaderboard, /어떤 닉네임으로 활동할까/);
+  assert.match(leaderboard, /돌 순위를 세는 중/);
+  assert.match(route, /eq\(userSettings\.leaderboardOptIn, true\)/);
+  assert.match(route, /name: row\.name/);
+  assert.doesNotMatch(route, /email: row\.ownerEmail/);
+});
+
+test("ships a localhost-only staged load test", async () => {
+  const script = await readFile(new URL("../scripts/load-test.mjs", import.meta.url), "utf8");
+  assert.match(script, /"100,300,500,1000"/);
+  assert.match(script, /Promise\.all/);
+  assert.match(script, /p95Seconds/);
+  assert.match(script, /\["127\.0\.0\.1", "localhost"\]/);
+});

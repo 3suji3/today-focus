@@ -18,8 +18,24 @@ export default function AdminFeedback() {
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const filtered = useMemo(() => filter === "all" ? items : items.filter((item) => item.status === filter), [filter, items]);
 
-  useEffect(() => { void fetch("/api/admin/feedback", { cache: "no-store" }).then((response) => response.json()).then((data) => { setItems(data.items ?? []); if (data.items?.[0]) setSelectedId(data.items[0].id); }); }, []);
-  useEffect(() => { if (selected) setDraft({ status: selected.status, adminReply: selected.adminReply ?? "" }); }, [selectedId]);
+  useEffect(() => {
+    void fetch("/api/admin/feedback", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        const nextItems = (data.items ?? []) as Feedback[];
+        setItems(nextItems);
+        if (nextItems[0]) {
+          setSelectedId(nextItems[0].id);
+          setDraft({ status: nextItems[0].status, adminReply: nextItems[0].adminReply ?? "" });
+        }
+      });
+  }, []);
+
+  function selectFeedback(item: Feedback) {
+    setSelectedId(item.id);
+    setDraft({ status: item.status, adminReply: item.adminReply ?? "" });
+    setNotice("");
+  }
 
   async function save() {
     if (!selected || saving) return;
@@ -38,7 +54,7 @@ export default function AdminFeedback() {
     <aside className="admin-feedback-list">
       <div className="admin-feedback-list-head"><div><p className="eyebrow">운영자 전용</p><h1>의견 관리</h1></div><b>{items.length}</b></div>
       <div className="admin-feedback-filters"><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>전체</button>{statusOptions.map((option) => <button className={filter === option.value ? "active" : ""} key={option.value} onClick={() => setFilter(option.value)}>{option.label}</button>)}</div>
-      <ul>{filtered.map((item) => <li key={item.id}><button className={selectedId === item.id ? "active" : ""} onClick={() => setSelectedId(item.id)}><span><i className={`feedback-status ${item.status}`}>{statusOptions.find((option) => option.value === item.status)?.label}</i><small>{item.kind === "bug" ? "버그" : "기능"}</small></span><strong>{item.title}</strong><em>{item.ownerEmail}</em></button></li>)}</ul>
+      <ul>{filtered.map((item) => <li key={item.id}><button className={selectedId === item.id ? "active" : ""} onClick={() => selectFeedback(item)}><span><i className={`feedback-status ${item.status}`}>{statusOptions.find((option) => option.value === item.status)?.label}</i><small>{item.kind === "bug" ? "버그" : "기능"}</small></span><strong>{item.title}</strong><em>{item.ownerEmail}</em></button></li>)}</ul>
     </aside>
     <section className="admin-feedback-detail">
       {selected ? <>

@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Ranking = { rank: number; name: string; score: number; isMe: boolean };
+type LeaderboardResponse = {
+  rankings?: Ranking[];
+  myRanking?: Ranking | null;
+  hasMore?: boolean;
+  page?: number;
+  totalParticipants?: number;
+  error?: string;
+};
 
 export default function Leaderboard({
   signedIn,
@@ -17,37 +25,55 @@ export default function Leaderboard({
 }) {
   const [scope, setScope] = useState<"weekly" | "total">("weekly");
   const [rankings, setRankings] = useState<Ranking[]>([]);
+  const [myRanking, setMyRanking] = useState<Ranking | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalParticipants, setTotalParticipants] = useState(0);
   const [isLoading, setIsLoading] = useState(signedIn);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [isNicknameOpen, setIsNicknameOpen] = useState(signedIn && !preferredName.trim());
   const [nicknameDraft, setNicknameDraft] = useState(preferredName);
 
-  const load = useCallback(async () => {
+  const loadPage = useCallback(async (nextPage: number, append: boolean) => {
     if (!signedIn) return;
-    setIsLoading(true);
+    if (append) setIsLoadingMore(true);
+    else setIsLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/leaderboard?scope=${scope}`, { cache: "no-store" });
-      const data = await response.json() as { rankings?: Ranking[]; error?: string };
+      const response = await fetch(`/api/leaderboard?scope=${scope}&page=${nextPage}`, { cache: "no-store" });
+      const data = await response.json() as LeaderboardResponse;
       if (!response.ok) throw new Error(data.error ?? "랭킹을 불러오지 못했어.");
-      setRankings(data.rankings ?? []);
+      setRankings((current) => append ? [...current, ...(data.rankings ?? [])] : data.rankings ?? []);
+      setMyRanking(data.myRanking ?? null);
+      setPage(data.page ?? nextPage);
+      setHasMore(data.hasMore === true);
+      setTotalParticipants(data.totalParticipants ?? 0);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "랭킹을 불러오지 못했어.");
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   }, [scope, signedIn]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); }, 0);
+    const timer = window.setTimeout(() => { void loadPage(1, false); }, 0);
     return () => window.clearTimeout(timer);
-  }, [load, reloadKey, optIn]);
+  }, [loadPage, reloadKey, optIn]);
+
+  const podium = useMemo(() => {
+    const top = rankings.filter((item) => item.rank <= 3);
+    return [top.find((item) => item.rank === 2), top.find((item) => item.rank === 1), top.find((item) => item.rank === 3)]
+      .filter((item): item is Ranking => Boolean(item));
+  }, [rankings]);
+  const listRankings = rankings.filter((item) => item.rank >= 4);
 
   async function changeOptIn() {
     if (!preferredName.trim()) {
-      setError("추천 설정에서 곰이 불러줄 이름을 먼저 적어줘.");
+      setIsNicknameOpen(true);
       return;
     }
     setIsSaving(true);
@@ -92,15 +118,22 @@ export default function Leaderboard({
 
   return <><section className="leaderboard-card" aria-labelledby="leaderboard-title">
     <header className="leaderboard-header">
-      <div><p className="eyebrow">돌 친구 랭킹</p><h2 id="leaderboard-title">같이 꾸준히 쌓아볼까?</h2><p>참여에 동의한 사용자만 닉네임과 완료 개수가 보여.</p></div>
+      <div><p className="eyebrow">돌 친구 랭킹</p><h2 id="leaderboard-title">같이 꾸준히 쌓아볼까?</h2><p>참여한 {totalParticipants.toLocaleString("ko-KR")}명의 닉네임과 완료 개수만 보여.</p></div>
       <button className={optIn ? "leaderboard-optin active" : "leaderboard-optin"} disabled={isSaving} onClick={changeOptIn}>{isSaving ? "저장 중…" : optIn ? "랭킹 참여 중 ✓" : "랭킹 참여하기"}</button>
     </header>
     <div className="leaderboard-scopes" aria-label="랭킹 기간">
       <button className={scope === "weekly" ? "active" : ""} onClick={() => setScope("weekly")}>이번 주</button>
       <button className={scope === "total" ? "active" : ""} onClick={() => setScope("total")}>누적</button>
     </div>
-    {isLoading ? <LeaderboardLoading /> : error ? <div className="leaderboard-empty" role="alert"><span>·﹏·</span><strong>{error}</strong><button onClick={() => setReloadKey((key) => key + 1)}>다시 불러오기</button></div> : rankings.length ? <ol className="leaderboard-list">{rankings.map((item) => <li key={`${item.rank}-${item.name}`} className={item.isMe ? "me" : ""}><b>{item.rank <= 3 ? ["🥇", "🥈", "🥉"][item.rank - 1] : item.rank}</b><div><strong>{item.name}{item.isMe ? " (나)" : ""}</strong><small>{scope === "weekly" ? "이번 주 완료" : "누적 완료"}</small></div><span>{item.score}<small>개</small></span></li>)}</ol> : <div className="leaderboard-empty"><span>○</span><strong>아직 이 기간의 랭킹이 비어 있어</strong><p>첫 번째 돌 친구가 되어봐!</p></div>}
-    <p className="leaderboard-privacy">이메일과 할 일 내용은 공개되지 않으며, 언제든 참여를 끌 수 있어.</p>
+    {isLoading ? <LeaderboardLoading /> : error && rankings.length === 0 ? <div className="leaderboard-empty" role="alert"><span>·﹏·</span><strong>{error}</strong><button onClick={() => setReloadKey((key) => key + 1)}>다시 불러오기</button></div> : rankings.length ? <>
+      {myRanking && <aside className="my-ranking-card" aria-label="내 현재 순위"><span>내 순위</span><strong>{myRanking.rank > 100 ? "100위 밖" : `${myRanking.rank}위`}</strong><p>{myRanking.score}<small>개 완료</small></p></aside>}
+      <ol className="leaderboard-podium" aria-label="상위 3명">{podium.map((item) => <li key={`podium-${item.rank}-${item.name}`} className={`rank-${item.rank}${item.isMe ? " me" : ""}`}><span aria-hidden="true">{["🥇", "🥈", "🥉"][item.rank - 1]}</span><strong>{item.name}{item.isMe ? " (나)" : ""}</strong><b>{item.score}<small>개</small></b></li>)}</ol>
+      {listRankings.length > 0 && <ol className="leaderboard-list" start={4}>{listRankings.map((item) => <li key={`${item.rank}-${item.name}`} className={item.isMe ? "me" : ""}><b>{item.rank}</b><div><strong>{item.name}{item.isMe ? " (나)" : ""}</strong><small>{scope === "weekly" ? "이번 주 완료" : "누적 완료"}</small></div><span>{item.score}<small>개</small></span></li>)}</ol>}
+      {hasMore && <button className="leaderboard-more" disabled={isLoadingMore} onClick={() => { void loadPage(page + 1, true); }}>{isLoadingMore ? <><i aria-hidden="true" /> 다음 순위를 불러오는 중…</> : `다음 순위 보기 · ${Math.min(page * 20, 100)}위까지 확인`}</button>}
+      {!hasMore && rankings.length >= 20 && <p className="leaderboard-end">여기까지 상위 {Math.min(rankings.length, 100)}명의 돌 친구야.</p>}
+      {error && <p className="leaderboard-inline-error" role="alert">{error} <button onClick={() => { void loadPage(page + 1, true); }}>다시 시도</button></p>}
+    </> : <div className="leaderboard-empty"><span>○</span><strong>아직 이 기간의 랭킹이 비어 있어</strong><p>첫 번째 돌 친구가 되어봐!</p></div>}
+    <p className="leaderboard-privacy">이메일과 할 일 내용은 공개되지 않으며, 상위 100위까지만 보여.</p>
   </section>
   {isNicknameOpen && <div className="modal-backdrop" role="presentation">
     <section className="modal leaderboard-nickname-modal" role="dialog" aria-modal="true" aria-labelledby="ranking-nickname-title">

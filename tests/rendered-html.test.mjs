@@ -97,8 +97,12 @@ test("keeps ranking opt-in, private, lazy, and visibly loading", async () => {
   assert.match(dashboard, /activeTab === "랭킹" \? <Leaderboard/);
   assert.match(leaderboard, /어떤 닉네임으로 활동할까/);
   assert.match(leaderboard, /돌 순위를 세는 중/);
-  assert.match(route, /eq\(userSettings\.leaderboardOptIn, true\)/);
-  assert.match(route, /name: row\.name/);
+  assert.match(leaderboard, /leaderboard-podium/);
+  assert.match(leaderboard, /다음 순위 보기/);
+  assert.match(leaderboard, /my-ranking-card/);
+  assert.match(route, /leaderboard_opt_in = 1/);
+  assert.match(route, /const PAGE_SIZE = 20/);
+  assert.match(route, /const MAX_RANK = 100/);
   assert.doesNotMatch(route, /email: row\.ownerEmail/);
 });
 

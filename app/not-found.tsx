@@ -1,4 +1,4 @@
-import Link from "next/link";
+/* eslint-disable @next/next/no-html-link-for-pages -- Vinext client navigation currently crashes in the deployed runtime. */
 import SafeImage from "./safe-image";
 
 export default function NotFound() {
@@ -7,6 +7,6 @@ export default function NotFound() {
     <p className="eyebrow">404 · 길을 잃었어</p>
     <h1>곰이 여기서는 돌을 못 찾았어…</h1>
     <p>주소가 바뀌었거나 없는 페이지야. 우리 돌 친구들이 있는 곳으로 돌아가자.</p>
-    <Link href="/">오늘의 돌 친구들에게 돌아가기</Link>
+    <a href="/">오늘의 돌 친구들에게 돌아가기</a>
   </section></main>;
 }

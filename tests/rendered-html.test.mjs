@@ -113,13 +113,19 @@ test("keeps ranking opt-in, private, lazy, and visibly loading", async () => {
 });
 
 test("supports selecting separate dates and shows feedback navigation loading", async () => {
-  const [dashboard, picker, route] = await Promise.all([
+  const [dashboard, picker, route, layout, feedbackPage] = await Promise.all([
     readFile(new URL("../app/dashboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cute-multi-date-picker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/feedback/page.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(dashboard, /draftScheduledDates/);
   assert.match(dashboard, /feedback-opening-backdrop/);
+  assert.match(dashboard, /<a className="feedback-link" href="\/feedback"/);
+  assert.doesNotMatch(dashboard, /next\/link|href="\/feedback" prefetch/);
+  assert.doesNotMatch(feedbackPage, /next\/link/);
+  assert.doesNotMatch(layout, /next\/font\/google|\.vinext\/fonts/);
   assert.match(picker, /다시 누르면 선택 해제/);
   assert.match(route, /normalizeSelectedDates/);
   assert.match(route, /scheduledDates/);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import Link from "next/link";
 import { categories, classifyTask, normalizeTitle, type Category } from "../lib/classification";
 import { orderTodayTasks, type RecommendationSettings } from "../lib/recommendation";
 import StoneGrowth, { stoneStageCollection, visibleStoneCount, type StoneStageKey, type StoneStats } from "./stone-growth";
@@ -903,7 +902,7 @@ export default function Dashboard({
           <a className="account-button" href={signedIn ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/"}>
             {signedIn ? "로그아웃" : "로그인"}
           </a>
-          <Link className="feedback-link" href="/feedback" prefetch onClick={() => setIsFeedbackOpening(true)}>버그·기능 제안</Link>
+          <a className="feedback-link" href="/feedback" onClick={() => setIsFeedbackOpening(true)}>버그·기능 제안</a>
           <button className="add-button" data-help="새 할 일을 등록해요" onClick={() => setIsAdding(true)}>
             <span aria-hidden="true">＋</span> 할 일 추가
           </button>
@@ -929,7 +928,7 @@ export default function Dashboard({
                 {tab}
               </button>
             ))}
-            <Link className="mobile-feedback-link" href="/feedback" prefetch onClick={() => setIsFeedbackOpening(true)}><span aria-hidden="true">!</span>버그·기능 제안</Link>
+            <a className="mobile-feedback-link" href="/feedback" onClick={() => setIsFeedbackOpening(true)}><span aria-hidden="true">!</span>버그·기능 제안</a>
           </div>
         </nav>
       </>}

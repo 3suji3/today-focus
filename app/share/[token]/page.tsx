@@ -1,5 +1,5 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- Vinext client navigation currently crashes in the deployed runtime. */
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import Link from "next/link";
 import type { CSSProperties } from "react";
 import { getDb } from "../../../db";
 import { shareLinks, taskCompletions, tasks } from "../../../db/schema";
@@ -83,5 +83,5 @@ function SharedMissing() {
 }
 
 function SiteEntryCallToAction() {
-  return <div className="share-site-entry"><p><strong>나도 오늘의 작은 성취를 모아볼까?</strong><span>내 일정은 내 계정에만 따로 저장돼요.</span></p><Link href="/">오늘 뭐하지? 시작하기 <span aria-hidden="true">→</span></Link></div>;
+  return <div className="share-site-entry"><p><strong>나도 오늘의 작은 성취를 모아볼까?</strong><span>내 일정은 내 계정에만 따로 저장돼요.</span></p><a href="/">오늘 뭐하지? 시작하기 <span aria-hidden="true">→</span></a></div>;
 }

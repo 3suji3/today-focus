@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  --font-geist-sans: Pretendard, "Noto Sans KR", system-ui, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
   --paper: #fafaf7;
   --ink: #24324a;
   --muted: #6f7787;

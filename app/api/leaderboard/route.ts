@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
+import { clampWeekOffset, leaderboardWeekRange } from "../../../lib/leaderboard-period";
 
 const PAGE_SIZE = 20;
 const MAX_RANK = 100;
@@ -20,12 +21,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const scope = url.searchParams.get("scope") === "total" ? "total" : "weekly";
   const requestedPage = Number(url.searchParams.get("page") ?? "1");
+  const weekOffset = clampWeekOffset(Number(url.searchParams.get("weekOffset") ?? "0"));
   const page = Math.max(1, Math.min(MAX_RANK / PAGE_SIZE, Number.isInteger(requestedPage) ? requestedPage : 1));
   const startRank = (page - 1) * PAGE_SIZE + 1;
   const endRank = page * PAGE_SIZE;
-  const weekStartedAt = startOfCurrentWeekKst();
+  const week = leaderboardWeekRange(Date.now(), weekOffset);
   const scopeCondition = scope === "weekly"
-    ? sql`and tc.completed_at >= ${weekStartedAt}`
+    ? sql`and tc.completed_at >= ${week.startAt} and tc.completed_at < ${week.endAt}`
     : sql``;
 
   const rows = await getDb().all(sql`
@@ -67,17 +69,14 @@ export async function GET(request: Request) {
     page,
     pageSize: PAGE_SIZE,
     maxRank: MAX_RANK,
-    weekStartedAt,
+    weekOffset,
+    weekStartedAt: week.startAt,
+    weekEndedAt: week.endAt,
+    weekStartDate: week.startDate,
+    weekEndDate: week.endDate,
     totalParticipants,
     hasMore: endRank < Math.min(totalParticipants, MAX_RANK),
     rankings: pageRows.map(toRanking),
     myRanking: myRow ? toRanking(myRow) : null,
   }, { headers: { "cache-control": "private, max-age=10" } });
-}
-
-function startOfCurrentWeekKst(now = Date.now()) {
-  const kstOffset = 9 * 60 * 60 * 1000;
-  const date = new Date(now + kstOffset);
-  const daysSinceMonday = (date.getUTCDay() + 6) % 7;
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - daysSinceMonday) - kstOffset;
 }

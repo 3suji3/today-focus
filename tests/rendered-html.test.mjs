@@ -100,10 +100,29 @@ test("keeps ranking opt-in, private, lazy, and visibly loading", async () => {
   assert.match(leaderboard, /leaderboard-podium/);
   assert.match(leaderboard, /다음 순위 보기/);
   assert.match(leaderboard, /my-ranking-card/);
+  assert.match(leaderboard, /최근 12주를 주별로 넘겨볼 수 있어/);
+  assert.match(leaderboard, /랭킹 기준을 설명하는 돌곰이/);
+  assert.match(leaderboard, /한국 시간 월요일 0시부터 일요일 23시 59분까지 완료한 일정 개수/);
+  assert.match(dashboard, /activeTab !== "랭킹" && <div className="guide-row">/);
+  assert.match(leaderboard, /weekOffset/);
   assert.match(route, /leaderboard_opt_in = 1/);
+  assert.match(route, /tc\.completed_at < \$\{week\.endAt\}/);
   assert.match(route, /const PAGE_SIZE = 20/);
   assert.match(route, /const MAX_RANK = 100/);
   assert.doesNotMatch(route, /email: row\.ownerEmail/);
+});
+
+test("supports selecting separate dates and shows feedback navigation loading", async () => {
+  const [dashboard, picker, route] = await Promise.all([
+    readFile(new URL("../app/dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cute-multi-date-picker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(dashboard, /draftScheduledDates/);
+  assert.match(dashboard, /feedback-opening-backdrop/);
+  assert.match(picker, /다시 누르면 선택 해제/);
+  assert.match(route, /normalizeSelectedDates/);
+  assert.match(route, /scheduledDates/);
 });
 
 test("ships a localhost-only staged load test", async () => {

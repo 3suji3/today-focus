@@ -10,7 +10,7 @@
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
     "build": "bash scripts/build-verified.sh",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/bear-personality.test.ts tests/classification.test.ts tests/korean-line-break.test.ts tests/korean-vocative.test.ts tests/rate-limit.test.ts tests/recommendation.test.ts tests/share-reuse.test.ts tests/stone-achievements.test.ts tests/stone-catalog.test.ts tests/task-reason.test.ts tests/task-schedule.test.ts tests/task-suggestions.test.ts tests/today-mood.test.ts",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/bear-personality.test.ts tests/classification.test.ts tests/korean-line-break.test.ts tests/korean-vocative.test.ts tests/leaderboard-period.test.ts tests/multi-date.test.ts tests/rate-limit.test.ts tests/recommendation.test.ts tests/share-reuse.test.ts tests/stone-achievements.test.ts tests/stone-catalog.test.ts tests/task-reason.test.ts tests/task-schedule.test.ts tests/task-suggestions.test.ts tests/today-mood.test.ts",
     "validate:artifact": "bash scripts/validate-artifact.sh",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "test:load": "node scripts/load-test.mjs",
@@ -24,7 +24,7 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.37.1",
+    "@cloudflare/vite-plugin": "^1.50.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -37,9 +37,9 @@
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
-    "vinext": "0.0.50",
+    "vinext": "^1.0.0-beta.4",
     "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "wrangler": "^4.118.0"
   },
   "type": "module",
   "displayName": "오늘 뭐하지"

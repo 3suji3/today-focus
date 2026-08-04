@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, notExists, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
 import { categoryFeedback, stoneRewards, taskCompletions, taskSkips, tasks, userSettings } from "../../../db/schema";
@@ -9,6 +9,7 @@ import { STONE_VARIANT_COUNT } from "../../stone-catalog";
 import { allowedStoneStages, type StoneStageKey } from "../../../lib/stone-stages";
 import { isBearPersonality, type BearPersonality } from "../../../lib/bear-personality";
 import { makeTaskReason } from "../../../lib/task-reason";
+import { normalizeSelectedDates } from "../../../lib/multi-date";
 
 const allowedCategories = new Set<string>(categories);
 const allowedEnergy = new Set(["낮음", "보통", "높음"]);
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
   const limited = rateLimitResponse(user.email);
   if (limited) return limited;
 
-  const payload = (await request.json()) as { requestId?: string; title?: string; category?: string; minutes?: number; allDay?: boolean; energy?: string; recurrence?: string; scheduledDate?: string; scheduledEndDate?: string | null };
+  const payload = (await request.json()) as { requestId?: string; requestIds?: string[]; title?: string; category?: string; minutes?: number; allDay?: boolean; energy?: string; recurrence?: string; scheduledDate?: string; scheduledDates?: string[]; scheduledEndDate?: string | null };
   const title = payload.title?.trim().slice(0, 160) ?? "";
   if (!title) return Response.json({ error: "할 일을 적어줘." }, { status: 400 });
 
@@ -115,7 +116,6 @@ export async function POST(request: Request) {
     ? { category: payload.category as Category, confidence: 1, source: "personal" as const }
     : classifyTask(title, feedback);
   const now = Date.now();
-  const id = payload.requestId && requestIdPattern.test(payload.requestId) ? payload.requestId : crypto.randomUUID();
   const minutes = Math.max(5, Math.min(720, Math.round(Number(payload.minutes) || 20)));
   const energy = allowedEnergy.has(payload.energy ?? "") ? payload.energy as "낮음" | "보통" | "높음" : "보통";
   const recurrence: Recurrence = payload.recurrence === "daily" ? "daily" : "once";
@@ -123,14 +123,22 @@ export async function POST(request: Request) {
   const scheduledDate = isValidDateKey(payload.scheduledDate) && payload.scheduledDate >= today
     ? payload.scheduledDate
     : today;
+  const scheduledDates = recurrence === "once"
+    ? normalizeSelectedDates(payload.scheduledDates, today)
+    : [];
+  const datesToCreate = scheduledDates.length ? scheduledDates : [scheduledDate];
   const scheduledEndDate = recurrence === "daily" && isValidDateKey(payload.scheduledEndDate ?? undefined)
     ? payload.scheduledEndDate
     : null;
   if (scheduledEndDate && scheduledEndDate < scheduledDate) {
     return Response.json({ error: "종료일은 시작일보다 빠를 수 없어요." }, { status: 400 });
   }
-  const item = {
-    id,
+  const items = datesToCreate.map((date, index) => ({
+    id: payload.requestIds?.[index] && requestIdPattern.test(payload.requestIds[index])
+      ? payload.requestIds[index]
+      : index === 0 && payload.requestId && requestIdPattern.test(payload.requestId)
+        ? payload.requestId
+        : crypto.randomUUID(),
     ownerEmail: user.email,
     title,
     category: classification.category,
@@ -142,21 +150,24 @@ export async function POST(request: Request) {
     done: false,
     completedAt: null,
     recurrence,
-    scheduledDate,
+    scheduledDate: date,
     scheduledEndDate,
     archivedAt: null,
     version: 1,
     createdAt: now,
     updatedAt: now,
-  };
+  }));
 
-  const inserted = await db.insert(tasks).values(item).onConflictDoNothing({ target: tasks.id }).returning();
-  if (!inserted.length) {
-    const [existing] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.ownerEmail, user.email))).limit(1);
-    if (!existing) return Response.json({ error: "요청 식별자가 이미 사용됐어요." }, { status: 409 });
-    return Response.json({ task: existing, classification, duplicate: true });
+  const inserted = await db.insert(tasks).values(items).onConflictDoNothing({ target: tasks.id }).returning();
+  let savedItems = inserted;
+  if (inserted.length !== items.length) {
+    const ids = items.map((item) => item.id);
+    savedItems = await db.select().from(tasks).where(and(eq(tasks.ownerEmail, user.email), inArray(tasks.id, ids)));
+    if (savedItems.length !== items.length) return Response.json({ error: "요청 식별자가 이미 사용됐어요." }, { status: 409 });
   }
-  return Response.json({ task: inserted[0], classification, duplicate: false }, { status: 201 });
+  const byId = new Map(savedItems.map((item) => [item.id, item]));
+  const orderedItems = items.flatMap((item) => byId.get(item.id) ?? []);
+  return Response.json({ task: orderedItems[0], tasks: orderedItems, classification, duplicate: inserted.length !== items.length }, { status: inserted.length ? 201 : 200 });
 }
 
 export async function PATCH(request: Request) {

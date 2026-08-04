@@ -13,6 +13,7 @@ import StoneShareVisual from "./stone-share-visual";
 import { stoneCatalog, stoneCatalogEntries, stoneSpeciesIndexes, unlockedStoneEntries } from "./stone-catalog";
 import StoneFace from "./stone-face";
 import CuteDatePicker from "./cute-date-picker";
+import CuteMultiDatePicker from "./cute-multi-date-picker";
 import CuteSelect from "./cute-select";
 import DurationClockPicker from "./duration-clock-picker";
 import { GROWTH_COLLECTION_MAX, getStoneEasterEgg } from "../lib/stone-achievements";
@@ -144,6 +145,7 @@ export default function Dashboard({
   const [todayDate, setTodayDate] = useState(demoToday);
   const [draftDateMode, setDraftDateMode] = useState<"today" | "tomorrow" | "custom">("today");
   const [draftScheduledDate, setDraftScheduledDate] = useState(demoToday);
+  const [draftScheduledDates, setDraftScheduledDates] = useState<string[]>([demoToday]);
   const [draftScheduledEndDate, setDraftScheduledEndDate] = useState(addDaysKey(demoToday, 6));
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [notice, setNotice] = useState("");
@@ -165,6 +167,7 @@ export default function Dashboard({
   const [speechVariant, setSpeechVariant] = useState(0);
   const [busyAction, setBusyAction] = useState<"recommend" | "save" | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isFeedbackOpening, setIsFeedbackOpening] = useState(false);
   const [recommendationOffset, setRecommendationOffset] = useState(0);
   const [selectedStoneStage, setSelectedStoneStage] = useState<StoneStageKey>("auto");
   const [isResetConfirming, setIsResetConfirming] = useState(false);
@@ -425,37 +428,41 @@ export default function Dashboard({
     addTaskLockRef.current = true;
     setIsAddingTask(true);
     const title = draft.trim();
+    const selectedDates = draftRecurrence === "once" ? [...draftScheduledDates].sort() : [draftScheduledDate];
     let added = false;
     try {
       if (signedIn) {
       try {
-        const requestId = crypto.randomUUID();
+        const requestIds = selectedDates.map(() => crypto.randomUUID());
         const response = await fetchWithRetry("/api/tasks", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            requestId,
+            requestId: requestIds[0],
+            requestIds,
             title,
             energy,
             recurrence: draftRecurrence === "once" ? "once" : "daily",
             minutes: draftMinutes,
             allDay: draftAllDay,
             scheduledDate: draftScheduledDate,
+            scheduledDates: selectedDates,
             scheduledEndDate: draftRecurrence === "range" ? draftScheduledEndDate : null,
           }),
         });
         if (!response.ok) throw new Error("save failed");
-        const data = await response.json() as { task: Task; classification: { category: Category; confidence: number } };
-        const task = { ...data.task, isToday: taskOccursOn(data.task, todayDate) };
-        setTasks((items) => [task, ...items.filter((item) => !item.id.startsWith("demo-"))]);
+        const data = await response.json() as { task: Task; tasks?: Task[]; classification: { category: Category; confidence: number } };
+        const addedTasks = (data.tasks ?? [data.task]).map((task) => ({ ...task, isToday: taskOccursOn(task, todayDate) }));
+        const task = addedTasks[0];
+        setTasks((items) => [...addedTasks, ...items.filter((item) => !item.id.startsWith("demo-"))]);
         setTaskTemplates((items) => [
           { title: task.title, category: task.category, minutes: task.minutes },
           ...items.filter((item) => normalizeTitle(item.title) !== normalizeTitle(task.title)),
         ].slice(0, 60));
         setHistoryRevision((revision) => revision + 1);
         setNotice(data.classification.confidence < 0.55
-          ? `“${title}”은 분류가 애매해서 기타에 뒀어. 고쳐주면 다음엔 기억할게.`
-          : `“${title}”은 ${data.task.category}로 자동 분류했어.`);
+          ? `“${title}”은 분류가 애매해서 기타에 뒀어. 고쳐주면 다음엔 기억할게.${addedTasks.length > 1 ? ` 선택한 ${addedTasks.length}개 날짜에 추가했어.` : ""}`
+          : `“${title}”은 ${data.task.category}로 자동 분류했어.${addedTasks.length > 1 ? ` 선택한 ${addedTasks.length}개 날짜에 추가했어.` : ""}`);
       } catch {
         setNotice("저장하지 못했어. 잠시 후 다시 시도해줘.");
         return;
@@ -464,8 +471,8 @@ export default function Dashboard({
       const classification = classifyTask(title);
       setTasks((items) => [
         ...items,
-        {
-          id: `demo-${Date.now()}`,
+        ...selectedDates.map((scheduledDate, index) => ({
+          id: `demo-${Date.now()}-${index}`,
           category: classification.category,
           title,
           minutes: draftMinutes,
@@ -474,10 +481,10 @@ export default function Dashboard({
           done: false,
           version: 1,
           recurrence: draftRecurrence === "once" ? "once" : "daily",
-          scheduledDate: draftScheduledDate,
+          scheduledDate,
           scheduledEndDate: draftRecurrence === "range" ? draftScheduledEndDate : null,
-          isToday: draftScheduledDate <= todayDate && (draftRecurrence !== "once" || draftScheduledDate === todayDate) && (draftRecurrence !== "range" || todayDate <= draftScheduledEndDate),
-        },
+          isToday: scheduledDate <= todayDate && (draftRecurrence !== "once" || scheduledDate === todayDate) && (draftRecurrence !== "range" || todayDate <= draftScheduledEndDate),
+        })),
       ]);
       }
       added = true;
@@ -489,6 +496,7 @@ export default function Dashboard({
       setDraftRecurrence("once");
       setDraftDateMode("today");
       setDraftScheduledDate(todayDate);
+      setDraftScheduledDates([todayDate]);
       setDraftScheduledEndDate(addDaysKey(todayDate, 6));
       setTaskPage(0);
       setIsAdding(false);
@@ -895,7 +903,7 @@ export default function Dashboard({
           <a className="account-button" href={signedIn ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/"}>
             {signedIn ? "로그아웃" : "로그인"}
           </a>
-          <Link className="feedback-link" href="/feedback" prefetch>버그·기능 제안</Link>
+          <Link className="feedback-link" href="/feedback" prefetch onClick={() => setIsFeedbackOpening(true)}>버그·기능 제안</Link>
           <button className="add-button" data-help="새 할 일을 등록해요" onClick={() => setIsAdding(true)}>
             <span aria-hidden="true">＋</span> 할 일 추가
           </button>
@@ -921,7 +929,7 @@ export default function Dashboard({
                 {tab}
               </button>
             ))}
-            <Link className="mobile-feedback-link" href="/feedback" prefetch><span aria-hidden="true">!</span>버그·기능 제안</Link>
+            <Link className="mobile-feedback-link" href="/feedback" prefetch onClick={() => setIsFeedbackOpening(true)}><span aria-hidden="true">!</span>버그·기능 제안</Link>
           </div>
         </nav>
       </>}
@@ -938,7 +946,7 @@ export default function Dashboard({
 
       <div className="workspace" id="main">
         <section className="focus-note" aria-labelledby="today-heading">
-          <div className="guide-row">
+          {activeTab !== "랭킹" && <div className="guide-row">
             <div className={`mascot-placeholder${hasLegendaryBear ? " legendary-bear" : ""}`} aria-hidden="true">
               {hasLegendaryBear && <><span className="legendary-crown">♛</span><span className="legendary-sparkles">✦　✧　★　✦</span><span className="legendary-bear-name">돌친구 왕국 수호곰</span></>}
               <SafeImage key={mascotImage} src={mascotImage} alt="" eager />
@@ -961,7 +969,7 @@ export default function Dashboard({
               {activeTab === "오늘" && recommendedToday.length > 0 && <p className="plan-summary"><strong>맞춤 추천 {recommendedToday.length}개</strong> · 예상 {recommendedMinutes}분 · {recommendedToday.some((task) => !task.done) ? `추천 일정 ${recommendedToday.filter((task) => !task.done).length}개 남음` : "추천 일정 모두 완료!"}</p>}
               <span className="speech-refresh-hint" aria-hidden="true">말풍선을 누르면 다른 말을 해줘 ↻</span>
             </div>
-          </div>
+          </div>}
 
           {activeTab === "기록" ? <HistoryCalendar signedIn={signedIn} stoneTotal={stoneStats.current} refreshRevision={historyRevision} onStoneStatsChange={syncHistoryStoneStats} /> : activeTab === "랭킹" ? <Leaderboard signedIn={signedIn} preferredName={recommendationSettings.preferredName} optIn={recommendationSettings.leaderboardOptIn} onSettingsChange={(preferredName, leaderboardOptIn) => { setDisplayName(preferredName || initialName); setRecommendationSettings((settings) => ({ ...settings, preferredName, leaderboardOptIn })); setSettingsDraft((settings) => ({ ...settings, preferredName, leaderboardOptIn })); }} /> : <><div className="task-carousel"><ol className="task-list" aria-live="polite">
             {filteredTasks.length === 0 && (
@@ -1143,18 +1151,20 @@ export default function Dashboard({
             <fieldset className="schedule-field">
               <legend>언제 할 일정이야?</legend>
               <div className="schedule-options">
-                <button disabled={isAddingTask} type="button" className={draftDateMode === "today" ? "active" : ""} onClick={() => { setDraftDateMode("today"); setDraftScheduledDate(todayDate); setDraftScheduledEndDate((end) => end < todayDate ? addDaysKey(todayDate, 6) : end); }}>오늘</button>
-                <button disabled={isAddingTask} type="button" className={draftDateMode === "tomorrow" ? "active" : ""} onClick={() => { const tomorrow = addDaysKey(todayDate, 1); setDraftDateMode("tomorrow"); setDraftScheduledDate(tomorrow); setDraftScheduledEndDate((end) => end < tomorrow ? addDaysKey(tomorrow, 6) : end); }}>내일</button>
+                <button disabled={isAddingTask} type="button" className={draftDateMode === "today" ? "active" : ""} onClick={() => { setDraftDateMode("today"); setDraftScheduledDate(todayDate); setDraftScheduledDates([todayDate]); setDraftScheduledEndDate((end) => end < todayDate ? addDaysKey(todayDate, 6) : end); }}>오늘</button>
+                <button disabled={isAddingTask} type="button" className={draftDateMode === "tomorrow" ? "active" : ""} onClick={() => { const tomorrow = addDaysKey(todayDate, 1); setDraftDateMode("tomorrow"); setDraftScheduledDate(tomorrow); setDraftScheduledDates([tomorrow]); setDraftScheduledEndDate((end) => end < tomorrow ? addDaysKey(tomorrow, 6) : end); }}>내일</button>
                 <button disabled={isAddingTask} type="button" className={draftDateMode === "custom" ? "active" : ""} onClick={() => setDraftDateMode("custom")}>날짜 선택</button>
               </div>
-              {draftDateMode === "custom" && <CuteDatePicker disabled={isAddingTask} min={todayDate} value={draftScheduledDate} onChange={(date) => { setDraftScheduledDate(date); setDraftScheduledEndDate((end) => end < date ? addDaysKey(date, 6) : end); }} />}
+              {draftDateMode === "custom" && (draftRecurrence === "once"
+                ? <CuteMultiDatePicker disabled={isAddingTask} min={todayDate} values={draftScheduledDates} onChange={(dates) => { setDraftScheduledDates(dates); setDraftScheduledDate(dates[0]); setDraftScheduledEndDate((end) => end < dates[0] ? addDaysKey(dates[0], 6) : end); }} />
+                : <CuteDatePicker disabled={isAddingTask} min={todayDate} value={draftScheduledDate} onChange={(date) => { setDraftScheduledDate(date); setDraftScheduledDates([date]); setDraftScheduledEndDate((end) => end < date ? addDaysKey(date, 6) : end); }} />)}
             </fieldset>
             <fieldset className="recurrence-field">
               <legend>이 일정은 얼마나 자주 해?</legend>
               <div>
-                <button disabled={isAddingTask} type="button" className={draftRecurrence === "once" ? "active" : ""} onClick={() => setDraftRecurrence("once")}><strong>한 번만</strong><span>선택한 날짜에만 보여</span></button>
-                <button disabled={isAddingTask} type="button" className={draftRecurrence === "daily" ? "active" : ""} onClick={() => setDraftRecurrence("daily")}><strong>매일 반복</strong><span>매일 새 체크로 나타나</span></button>
-                <button disabled={isAddingTask} type="button" className={`range-option${draftRecurrence === "range" ? " active" : ""}`} onClick={() => setDraftRecurrence("range")}><strong>기간 반복</strong><span>정한 종료일까지 매일 보여</span></button>
+                <button disabled={isAddingTask} type="button" className={draftRecurrence === "once" ? "active" : ""} onClick={() => setDraftRecurrence("once")}><strong>한 번만</strong><span>한 날 또는 여러 날을 골라</span></button>
+                <button disabled={isAddingTask} type="button" className={draftRecurrence === "daily" ? "active" : ""} onClick={() => { setDraftRecurrence("daily"); setDraftScheduledDates([draftScheduledDate]); }}><strong>매일 반복</strong><span>매일 새 체크로 나타나</span></button>
+                <button disabled={isAddingTask} type="button" className={`range-option${draftRecurrence === "range" ? " active" : ""}`} onClick={() => { setDraftRecurrence("range"); setDraftScheduledDates([draftScheduledDate]); }}><strong>기간 반복</strong><span>정한 종료일까지 매일 보여</span></button>
               </div>
             </fieldset>
             {draftRecurrence === "range" && (
@@ -1168,6 +1178,8 @@ export default function Dashboard({
           </section>
         </div>
       )}
+
+      {isFeedbackOpening && <div className="feedback-opening-backdrop" role="status" aria-live="polite"><div className="feedback-opening-card"><span aria-hidden="true">🐞</span><strong>의견함을 열고 있어</strong><p>버그와 기능 제안을 안전하게 불러오는 중이야.</p><div><i /><i /><i /></div></div></div>}
 
       {isSettingsOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsSettingsOpen(false)}>

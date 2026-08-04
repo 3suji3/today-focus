@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import SafeImage from "./safe-image";
 
 type Ranking = { rank: number; name: string; score: number; isMe: boolean };
 type LeaderboardResponse = {
@@ -9,6 +10,9 @@ type LeaderboardResponse = {
   hasMore?: boolean;
   page?: number;
   totalParticipants?: number;
+  weekOffset?: number;
+  weekStartDate?: string;
+  weekEndDate?: string;
   error?: string;
 };
 
@@ -24,6 +28,8 @@ export default function Leaderboard({
   onSettingsChange: (preferredName: string, optIn: boolean) => void;
 }) {
   const [scope, setScope] = useState<"weekly" | "total">("weekly");
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [weekRange, setWeekRange] = useState({ start: "", end: "" });
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [myRanking, setMyRanking] = useState<Ranking | null>(null);
   const [page, setPage] = useState(1);
@@ -43,7 +49,7 @@ export default function Leaderboard({
     else setIsLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/leaderboard?scope=${scope}&page=${nextPage}`, { cache: "no-store" });
+      const response = await fetch(`/api/leaderboard?scope=${scope}&page=${nextPage}&weekOffset=${weekOffset}`, { cache: "no-store" });
       const data = await response.json() as LeaderboardResponse;
       if (!response.ok) throw new Error(data.error ?? "랭킹을 불러오지 못했어.");
       setRankings((current) => append ? [...current, ...(data.rankings ?? [])] : data.rankings ?? []);
@@ -51,13 +57,14 @@ export default function Leaderboard({
       setPage(data.page ?? nextPage);
       setHasMore(data.hasMore === true);
       setTotalParticipants(data.totalParticipants ?? 0);
+      setWeekRange({ start: data.weekStartDate ?? "", end: data.weekEndDate ?? "" });
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "랭킹을 불러오지 못했어.");
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [scope, signedIn]);
+  }, [scope, signedIn, weekOffset]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadPage(1, false); }, 0);
@@ -117,14 +124,25 @@ export default function Leaderboard({
   }
 
   return <><section className="leaderboard-card" aria-labelledby="leaderboard-title">
-    <header className="leaderboard-header">
-      <div><p className="eyebrow">돌 친구 랭킹</p><h2 id="leaderboard-title">같이 꾸준히 쌓아볼까?</h2><p>참여한 {totalParticipants.toLocaleString("ko-KR")}명의 닉네임과 완료 개수만 보여.</p></div>
+    <header className="leaderboard-hero">
+      <div className="leaderboard-hero-copy"><p className="eyebrow">돌 친구 랭킹</p><h2 id="leaderboard-title">같이 꾸준히 쌓아볼까?</h2><p>참여한 <strong>{totalParticipants.toLocaleString("ko-KR")}명</strong>의 닉네임과 완료 개수만 보여.</p></div>
       <button className={optIn ? "leaderboard-optin active" : "leaderboard-optin"} disabled={isSaving} onClick={changeOptIn}>{isSaving ? "저장 중…" : optIn ? "랭킹 참여 중 ✓" : "랭킹 참여하기"}</button>
+      <div className="leaderboard-bear" aria-label="돌곰이의 랭킹 안내">
+        <div className="leaderboard-bear-speech">
+          <strong>{scope === "weekly" ? "이번 주 랭킹은 이렇게 세어!" : "누적 랭킹은 이렇게 세어!"}</strong>
+          <span>{scope === "weekly" ? "한국 시간 월요일 0시부터 일요일 23시 59분까지 완료한 일정 개수로 순위를 매겨." : "지금까지 완료한 일정 개수를 모두 더해서 순위를 매겨."}</span>
+        </div>
+        <SafeImage src="/bear-encouraging.webp" alt="랭킹 기준을 설명하는 돌곰이" eager />
+      </div>
     </header>
     <div className="leaderboard-scopes" aria-label="랭킹 기간">
       <button className={scope === "weekly" ? "active" : ""} onClick={() => setScope("weekly")}>이번 주</button>
       <button className={scope === "total" ? "active" : ""} onClick={() => setScope("total")}>누적</button>
     </div>
+    {scope === "weekly" && <section className="leaderboard-period" aria-label="주간 랭킹 집계 기간과 기준">
+      <div><button type="button" aria-label="이전 주 보기" disabled={weekOffset <= -12} onClick={() => setWeekOffset((value) => Math.max(-12, value - 1))}>‹</button><strong>{weekRange.start && weekRange.end ? `${formatRankingDate(weekRange.start)} ~ ${formatRankingDate(weekRange.end)}` : "이번 주 날짜 확인 중"}</strong><button type="button" aria-label="다음 주 보기" disabled={weekOffset >= 0} onClick={() => setWeekOffset((value) => Math.min(0, value + 1))}>›</button></div>
+      <p><b>{weekOffset === 0 ? "이번 주" : `${Math.abs(weekOffset)}주 전`}</b> · 최근 12주를 주별로 넘겨볼 수 있어.</p>
+    </section>}
     {isLoading ? <LeaderboardLoading /> : error && rankings.length === 0 ? <div className="leaderboard-empty" role="alert"><span>·﹏·</span><strong>{error}</strong><button onClick={() => setReloadKey((key) => key + 1)}>다시 불러오기</button></div> : rankings.length ? <>
       {myRanking && <aside className="my-ranking-card" aria-label="내 현재 순위"><span>내 순위</span><strong>{myRanking.rank > 100 ? "100위 밖" : `${myRanking.rank}위`}</strong><p>{myRanking.score}<small>개 완료</small></p></aside>}
       <ol className="leaderboard-podium" aria-label="상위 3명">{podium.map((item) => <li key={`podium-${item.rank}-${item.name}`} className={`rank-${item.rank}${item.isMe ? " me" : ""}`}><span aria-hidden="true">{["🥇", "🥈", "🥉"][item.rank - 1]}</span><strong>{item.name}{item.isMe ? " (나)" : ""}</strong><b>{item.score}<small>개</small></b></li>)}</ol>
@@ -150,4 +168,9 @@ export default function Leaderboard({
 
 function LeaderboardLoading() {
   return <div className="leaderboard-loading" role="status" aria-live="polite"><span className="ranking-stone">•ᴗ•</span><strong>돌 순위를 세는 중…</strong><p>필요할 때만 랭킹 데이터를 불러오고 있어</p><div><i /><i /><i /></div></div>;
+}
+
+function formatRankingDate(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return `${year}.${month}.${day}`;
 }

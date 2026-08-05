@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { STONE_SHAPE_COUNT, stoneCatalog, stoneCatalogEntries, stoneShapeIndex, stoneSpeciesIndexes, unlockedStoneEntries, unlockedStoneIndex, unlockedStones } from "../app/stone-catalog.ts";
+import { stoneMotif, stoneVisualProfile } from "../app/stone-visual.ts";
 
 test("돌 친구 224종이 기존 번호를 유지하며 1개부터 15000개까지 열린다", () => {
   assert.equal(stoneCatalog.length, 224);
@@ -45,3 +46,25 @@ test("성장 컬렉션에는 개별 돌도감에서 해금한 종류만 나타�
   assert.ok(stoneSpeciesIndexes(100, 14, 20).every((index) => new Set(unlockedStoneEntries(100).map((entry) => entry.index)).has(index)));
   assert.ok(stoneSpeciesIndexes(5100, 14, 5000).every((index) => new Set(unlockedStoneEntries(5100).map((entry) => entry.index)).has(index)));
 });
+
+test("돌 이름의 구체적인 재료와 색을 우선해 서로 다른 외형을 고른다", () => {
+  assert.equal(stoneMotif("우유빛돌"), "milk");
+  assert.equal(stoneMotif("딸기우유돌"), "strawberry-milk");
+  assert.equal(stoneVisualProfile("우유빛돌", 97).theme, "white");
+  assert.equal(stoneVisualProfile("딸기우유돌", 102).theme, "pink");
+  assert.equal(stoneVisualProfile("민트초코돌", 182).theme, "mint");
+  assert.equal(stoneVisualProfile("보랏빛혜성돌", 119).theme, "purple");
+  assert.notDeepEqual(stoneVisualProfile("우유빛돌", 97), stoneVisualProfile("딸기우유돌", 102));
+});
+
+test("전체 돌 친구는 이름·모양·세부 무늬 조합이 완전히 겹치지 않는다", () => {
+  const signatures = stoneCatalog.map(([name], index) => {
+    const visual = stoneVisualProfile(name, index);
+    return [stoneShapeIndex(index), visual.motif, visual.theme, visual.detail, visual.angle, stoneFacesForTest(index)].join(":");
+  });
+  assert.equal(new Set(signatures).size, stoneCatalog.length);
+});
+
+function stoneFacesForTest(index: number) {
+  return index % 8;
+}

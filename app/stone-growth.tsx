@@ -28,6 +28,7 @@ export default function StoneGrowth({ stats, motion = null, selectedStage = "aut
   return (
     <div className={`stone-growth${motion ? ` ${motion}` : ""}`} aria-live="polite">
       <div className={`stone-stage stone-stage-${stage.kind}${easterEgg ? ` easter-${easterEgg.kind}` : ""}`}>
+        <span className="stage-landmark" aria-hidden="true">{stage.scene}</span>
         {stats.current === 0 ? (
           <div className="empty-stone-spot"><span>＋</span><p>할 일을 완료하면 첫 돌 친구를 만나</p></div>
         ) : (

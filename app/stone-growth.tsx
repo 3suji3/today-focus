@@ -16,6 +16,16 @@ export function visibleStoneCount(stageKey: Exclude<StoneStageKey, "auto">, tota
   return Math.min(total, 14);
 }
 
+export function StageScenery({ stageKey, compact = false }: { stageKey: Exclude<StoneStageKey, "auto">; compact?: boolean }) {
+  if (stageKey !== "campfire") return null;
+  return (
+    <span className={`stage-scenery stage-scenery-campfire${compact ? " compact" : ""}`} aria-hidden="true">
+      <span className="camp-tent"><i /></span>
+      <span className="camp-fire"><i /></span>
+    </span>
+  );
+}
+
 export default function StoneGrowth({ stats, motion = null, selectedStage = "auto" }: { stats: StoneStats; motion?: "added" | "removed" | null; selectedStage?: StoneStageKey }) {
   const automaticStage = getStage(stats.current);
   const selected = selectedStage === "auto" ? null : stoneStageCollection.find((stage) => stage.key === selectedStage && stats.current >= stage.unlockAt);
@@ -28,7 +38,8 @@ export default function StoneGrowth({ stats, motion = null, selectedStage = "aut
   return (
     <div className={`stone-growth${motion ? ` ${motion}` : ""}`} aria-live="polite">
       <div className={`stone-stage stone-stage-${stage.kind}${easterEgg ? ` easter-${easterEgg.kind}` : ""}`}>
-        <span className="stage-landmark" aria-hidden="true">{stage.scene}</span>
+        {stage.kind !== "campfire" && <span className="stage-landmark" aria-hidden="true">{stage.scene}</span>}
+        <StageScenery stageKey={stage.kind} />
         {stats.current === 0 ? (
           <div className="empty-stone-spot"><span>＋</span><p>할 일을 완료하면 첫 돌 친구를 만나</p></div>
         ) : (

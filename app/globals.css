@@ -258,8 +258,6 @@ h1 { margin: 0; font-size: clamp(29px, 3.1vw, 48px); line-height: 1.22; letter-s
 
 .stone-growth { display: grid; gap: 10px; }
 .stone-stage { min-height: 118px; display: grid; place-items: end center; border-radius: 22px; background: radial-gradient(ellipse at 50% 86%, rgba(255,230,128,.26), transparent 56%); overflow: hidden; position: relative; }
-.stage-landmark { position: absolute; z-index: 0; top: 10px; left: 13px; color: rgba(255,255,255,.94); font-size: 19px; font-weight: 900; letter-spacing: 2px; line-height: 1; text-shadow: 0 1px 6px rgba(44,61,83,.34); }
-.stone-stage-first .stage-landmark,.stone-stage-friends .stage-landmark,.stone-stage-pile .stage-landmark { color: rgba(91,111,132,.5); text-shadow: none; }
 .stone-stage-pile { background: linear-gradient(180deg,#f6fbff,#f7f1e6); }
 .stone-stage-picnic { background: linear-gradient(150deg, rgba(255,244,207,.48), rgba(224,243,235,.46)); }
 .stone-stage-picnic .pebble-pile { width: 220px; min-height: 118px; align-content: center; padding: 30px 30px 15px; border-radius: 38% 42% 18% 20%; background: repeating-linear-gradient(45deg, #f6d9cf 0 12px, #fff7e9 12px 24px); box-shadow: 0 5px 0 rgba(82,92,101,.06); }
@@ -701,8 +699,6 @@ h1 { margin: 0; font-size: clamp(29px, 3.1vw, 48px); line-height: 1.22; letter-s
 .growth-species { width: 70px; position: absolute; left: 50%; bottom: 3px; display: flex; flex-wrap: wrap-reverse; align-content: flex-start; align-items: end; justify-content: center; gap: 0; transform: translateX(-50%); }
 .growth-species-stone { width: 18px; height: 15px; display: grid; place-items: center; margin: -1px; border: .8px solid #59636e; color: #29323d; font-size: 3px; filter: drop-shadow(0 2px 1px rgba(45,55,66,.12)); }
 .growth-mini { overflow: hidden; position: relative; border: 1px solid #c8d6df; border-radius: 12px; background: linear-gradient(180deg,#edf8ff,#f7f0df); }
-.growth-mini .stage-landmark { top: 6px; left: 7px; max-width: 61px; color: rgba(255,255,255,.94); font-size: 10px; letter-spacing: 1px; text-shadow: 0 1px 4px rgba(41,55,73,.38); }
-.growth-first .stage-landmark,.growth-friends .stage-landmark,.growth-pile .stage-landmark { color: rgba(91,111,132,.5); text-shadow: none; }
 .stone-stage::before,.growth-mini::before { content: none !important; }
 .growth-first { width: 55px; } .growth-friends { background: #e8f4fa; } .growth-pile { background: linear-gradient(180deg,#edf7ff,#e7dfd2); } .growth-picnic { background: repeating-linear-gradient(45deg,#f6d9cf 0 10px,#fff7e9 10px 20px); }
 .growth-basket, .growth-bigBasket { border-radius: 10px 10px 25px 25px; background: repeating-linear-gradient(90deg,#e4be7f 0 7px,#f2d8aa 8px 14px); box-shadow: inset 0 6px 0 #bc8e54; }

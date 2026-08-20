@@ -1,5 +1,7 @@
 <div align="center">
 
+![오늘 뭐하지? 메인 이미지](./docs/images/today-focus-readme-hero.jpg)
+
 # 오늘 뭐하지? · Today Focus
 
 **해야 할 일은 많은데 무엇부터 시작할지 막막할 때,**<br>

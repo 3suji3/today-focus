@@ -1209,7 +1209,23 @@ export default function Dashboard({
                   <span>곰이 불러줄 이름</span>
                   <input value={settingsDraft.preferredName} maxLength={20} placeholder={initialName} onChange={(event) => setSettingsDraft((draft) => ({ ...draft, preferredName: event.target.value }))} />
                 </label>
-                <label className="leaderboard-setting"><input type="checkbox" checked={settingsDraft.leaderboardOptIn} onChange={(event) => setSettingsDraft((draft) => ({ ...draft, leaderboardOptIn: event.target.checked }))} /><span><strong>닉네임으로 랭킹 참여</strong><small>이메일과 할 일 내용은 공개하지 않아.</small></span></label>
+                <div className="leaderboard-setting">
+                  <div>
+                    <strong>닉네임으로 랭킹 참여</strong>
+                    <span>이메일과 할 일 내용은 공개하지 않아.</span>
+                  </div>
+                  <button
+                    className={`help-switch${settingsDraft.leaderboardOptIn ? " active" : ""}`}
+                    type="button"
+                    role="switch"
+                    aria-checked={settingsDraft.leaderboardOptIn}
+                    aria-label="닉네임으로 랭킹 참여"
+                    onClick={() => setSettingsDraft((draft) => ({ ...draft, leaderboardOptIn: !draft.leaderboardOptIn }))}
+                  >
+                    <span aria-hidden="true" />
+                    <strong>{settingsDraft.leaderboardOptIn ? "참여" : "미참여"}</strong>
+                  </button>
+                </div>
                 <fieldset className="recommend-mode-field">
                   <legend>오늘 할 일 개수</legend>
                   <div className="recommend-mode-options">

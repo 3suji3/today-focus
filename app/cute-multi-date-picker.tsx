@@ -9,10 +9,6 @@ function moveMonth(month: string, delta: number) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function todayKey() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
-
 function selectionLabel(values: string[]) {
   if (values.length === 1) {
     const [year, month, day] = values[0].split("-").map(Number);
@@ -62,7 +58,7 @@ export default function CuteMultiDatePicker({ values, min, disabled = false, onC
         if (!day) return <span key={`empty-${index}`} />;
         const dateKey = `${month}-${String(day).padStart(2, "0")}`;
         const selected = safeValues.includes(dateKey);
-        return <button type="button" key={dateKey} disabled={dateKey < min || (!selected && safeValues.length >= MAX_MULTI_DATES)} aria-pressed={selected} className={`${selected ? "selected " : ""}${dateKey === todayKey() ? "today" : ""}`} onClick={() => toggleDate(dateKey)}><span>{day}</span>{selected && <i aria-hidden="true">•ᴗ•</i>}</button>;
+        return <button type="button" key={dateKey} disabled={dateKey < min || (!selected && safeValues.length >= MAX_MULTI_DATES)} aria-pressed={selected} className={`${selected ? "selected " : ""}${dateKey === min ? "today" : ""}`} onClick={() => toggleDate(dateKey)}><span>{day}</span>{selected && <i aria-hidden="true">•ᴗ•</i>}</button>;
       })}</div>
       <div className="cute-multi-date-footer"><p><span aria-hidden="true">✦</span> {safeValues.length}개 선택 · 다시 누르면 선택 해제</p><button type="button" onClick={() => setOpen(false)}>선택 완료</button></div>
     </div>}

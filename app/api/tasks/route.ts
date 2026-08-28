@@ -116,7 +116,11 @@ export async function POST(request: Request) {
     ? { category: payload.category as Category, confidence: 1, source: "personal" as const }
     : classifyTask(title, feedback);
   const now = Date.now();
-  const minutes = Math.max(5, Math.min(720, Math.round(Number(payload.minutes) || 20)));
+  const requestedMinutes = Math.round(Number(payload.minutes));
+  if (payload.allDay !== true && (!Number.isFinite(requestedMinutes) || requestedMinutes <= 0)) {
+    return Response.json({ error: "예상 시간은 5분 이상 선택해 주세요." }, { status: 400 });
+  }
+  const minutes = payload.allDay === true ? 480 : Math.min(720, requestedMinutes);
   const energy = allowedEnergy.has(payload.energy ?? "") ? payload.energy as "낮음" | "보통" | "높음" : "보통";
   const recurrence: Recurrence = payload.recurrence === "daily" ? "daily" : "once";
   const today = kstDateKey(now);
@@ -158,7 +162,14 @@ export async function POST(request: Request) {
     updatedAt: now,
   }));
 
-  const inserted = await db.insert(tasks).values(items).onConflictDoNothing({ target: tasks.id }).returning();
+  // D1 has a bound-parameter limit per statement. Multi-date schedules can contain
+  // up to 31 rows, so insert small chunks instead of generating one oversized SQL.
+  const inserted = [] as typeof items;
+  for (let index = 0; index < items.length; index += 5) {
+    const chunk = items.slice(index, index + 5);
+    const savedChunk = await db.insert(tasks).values(chunk).onConflictDoNothing({ target: tasks.id }).returning();
+    inserted.push(...savedChunk);
+  }
   let savedItems = inserted;
   if (inserted.length !== items.length) {
     const ids = items.map((item) => item.id);

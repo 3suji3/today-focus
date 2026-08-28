@@ -16,13 +16,13 @@ export default function DurationClockPicker({ minutes, allDay, disabled = false,
   const minutePart = Math.max(0, Math.min(55, Math.round((minutes % 60) / 5) * 5));
   const labels = mode === "hour" ? Array.from({ length: 12 }, (_, index) => index + 1) : minuteMarks;
   const selected = mode === "hour" ? (hours || 12) : minutePart;
-  const summary = allDay ? "하루 종일" : hours ? `${hours}시간${minutePart ? ` ${minutePart}분` : ""}` : `${minutePart || 5}분`;
+  const summary = allDay ? "하루 종일" : hours ? `${hours}시간${minutePart ? ` ${minutePart}분` : ""}` : `${minutePart}분`;
   const handRotation = useMemo(() => mode === "hour" ? (selected % 12) * 30 : selected * 6, [mode, selected]);
 
   function choose(value: number) {
     if (disabled) return;
-    if (mode === "hour") onChange({ allDay: false, minutes: Math.max(5, value * 60 + minutePart) });
-    else onChange({ allDay: false, minutes: Math.max(5, hours * 60 + value) });
+    if (mode === "hour") onChange({ allDay: false, minutes: value * 60 + minutePart });
+    else onChange({ allDay: false, minutes: hours * 60 + value });
   }
 
   function chooseFromPointer(event: PointerEvent<HTMLDivElement>) {
@@ -32,10 +32,19 @@ export default function DurationClockPicker({ minutes, allDay, disabled = false,
     choose(mode === "hour" ? (Math.round(angle / 30) || 12) : (Math.round(angle / 30) % 12) * 5);
   }
 
+  function reset() {
+    if (disabled) return;
+    setMode("minute");
+    onChange({ allDay: false, minutes: 0 });
+  }
+
   return <div className={`duration-clock-picker${allDay ? " all-day" : ""}`}>
     <div className="duration-clock-head">
       <div><span>예상 시간</span><strong>{summary}</strong></div>
-      <button type="button" className={allDay ? "active" : ""} disabled={disabled} aria-pressed={allDay} onClick={() => onChange({ allDay: !allDay, minutes: allDay ? Math.max(5, minutes) : 480 })}>하루 종일</button>
+      <div className="duration-clock-actions">
+        <button type="button" className="reset" disabled={disabled} onClick={reset}>초기화</button>
+        <button type="button" className={allDay ? "active" : ""} disabled={disabled} aria-pressed={allDay} onClick={() => onChange({ allDay: !allDay, minutes: allDay ? minutes : 480 })}>하루 종일</button>
+      </div>
     </div>
     {!allDay && <>
       <div className="duration-clock-tabs" aria-label="시간 또는 분 선택">
@@ -46,7 +55,7 @@ export default function DurationClockPicker({ minutes, allDay, disabled = false,
         <i className="duration-clock-hand" style={{ transform: `translateX(-50%) rotate(${handRotation}deg)` }} />
         <b className="duration-clock-center" />
         {labels.map((label, index) => {
-          const angle = index * 30;
+          const angle = (mode === "hour" ? index + 1 : index) * 30;
           return <button type="button" key={label} disabled={disabled} className={selected === label ? "selected" : ""} style={{ "--clock-angle": `${angle}deg` } as CSSProperties} onClick={() => choose(label)}>{mode === "minute" ? String(label).padStart(2, "0") : label}</button>;
         })}
       </div>

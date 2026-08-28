@@ -147,6 +147,7 @@ export default function Dashboard({
   const [draftScheduledDates, setDraftScheduledDates] = useState<string[]>([demoToday]);
   const [draftScheduledEndDate, setDraftScheduledEndDate] = useState(addDaysKey(demoToday, 6));
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [isZeroDurationAlertOpen, setIsZeroDurationAlertOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [stoneStats, setStoneStats] = useState<StoneStats>(signedIn ? { weekly: 0, current: 0, weekStartedAt: 0 } : demoStoneStats);
   const [stoneMotion, setStoneMotion] = useState<"added" | "removed" | null>(null);
@@ -420,6 +421,10 @@ export default function Dashboard({
 
   async function addTask() {
     if (!draft.trim() || addTaskLockRef.current) return;
+    if (!draftAllDay && draftMinutes === 0) {
+      setIsZeroDurationAlertOpen(true);
+      return;
+    }
     if (draftRecurrence === "range" && draftScheduledEndDate < draftScheduledDate) {
       setNotice("기간 반복 종료일은 시작일보다 뒤여야 해.");
       return;
@@ -490,7 +495,7 @@ export default function Dashboard({
       setDraft("");
       setIsTaskSuggestionsOpen(false);
       setActiveTaskSuggestion(-1);
-      setDraftMinutes(20);
+      setDraftMinutes(0);
       setDraftAllDay(false);
       setDraftRecurrence("once");
       setDraftDateMode("today");
@@ -1174,6 +1179,18 @@ export default function Dashboard({
             )}
             <button className="modal-submit" disabled={isAddingTask || !draft.trim()} onClick={addTask}>{isAddingTask ? "곰이 돌을 주우러 가는 중…" : "일정 추가하기"}</button>
             {isAddingTask && <div className="bear-loading" role="status" aria-live="polite"><span className="walking-bear"><SafeImage src="/chubby-bear-transparent-v3.webp" alt="" eager /></span><span className="loading-pebble">•‿•</span><p>딱 하나만 안전하게 담고 있어. 잠깐만 기다려줘!</p></div>}
+          </section>
+        </div>
+      )}
+
+      {isZeroDurationAlertOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsZeroDurationAlertOpen(false)}>
+          <section className="modal duration-alert-modal" role="alertdialog" aria-modal="true" aria-labelledby="duration-alert-title" aria-describedby="duration-alert-description" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" aria-label="닫기" onClick={() => setIsZeroDurationAlertOpen(false)}>×</button>
+            <p className="eyebrow">예상 시간을 확인해줘</p>
+            <h2 id="duration-alert-title">0분 일정은 만들 수 없어</h2>
+            <p id="duration-alert-description">시간이나 분을 5분 이상 선택한 뒤 다시 추가해줘.</p>
+            <button className="modal-submit" autoFocus onClick={() => setIsZeroDurationAlertOpen(false)}>시간 다시 선택하기</button>
           </section>
         </div>
       )}

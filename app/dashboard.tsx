@@ -875,7 +875,7 @@ export default function Dashboard({
   return (
     <main className={`app-shell${showButtonTooltips ? " tooltips-on" : " tooltips-off"}`}>
       <header className="topbar">
-        <a className="brand" href="#main" aria-label="오늘 뭐하지 홈">
+        <a className="brand" href="#main" aria-label="오늘 페이지로 이동" onClick={() => selectTab("오늘")}>
           오늘 뭐하지?<span className="brand-dot" />
         </a>
         <nav className="tabs" aria-label="할 일 분류">

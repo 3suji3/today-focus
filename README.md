@@ -410,8 +410,6 @@ npm run dev
 
 `.env.example`을 참고해 로컬 환경 파일을 작성합니다. 비밀값과 실제 사용자 데이터는 저장소에 커밋하지 않습니다.
 
-기본 운영 데이터베이스는 Cloudflare D1입니다. PostgreSQL 확장 방법은 [POSTGRES_SETUP.md](./POSTGRES_SETUP.md)와 [`postgres/001_initial.sql`](./postgres/001_initial.sql)을 참고할 수 있습니다.
-
 ## 개발 및 QA 과정
 
 이 프로젝트에서는 기능 개수보다 실제 사용 흐름의 신뢰도를 높이는 데 시간을 더 많이 사용했습니다.

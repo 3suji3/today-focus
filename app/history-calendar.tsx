@@ -69,8 +69,8 @@ function demoEntries(month: string): HistoryEntry[] {
   const day = kstToday();
   if (!day.startsWith(month)) return [];
   return [
-    { id: "demo-2", title: "Playwright 강의 1개 듣기", category: "공부", minutes: 25, recurrence: "once", scheduledEndDate: null, dateKey: day, done: true, stoneVariant: 2 },
-    { id: "demo-1", title: "보이저엑스 예상 질문 정리", category: "취업", minutes: 40, recurrence: "once", scheduledEndDate: null, dateKey: day, done: false, stoneVariant: 7 },
+    { id: "demo-2", title: "가벼운 산책하기", category: "일상", minutes: 25, recurrence: "once", scheduledEndDate: null, dateKey: day, done: true, stoneVariant: 2 },
+    { id: "demo-1", title: "책 한 챕터 읽기", category: "공부", minutes: 40, recurrence: "once", scheduledEndDate: null, dateKey: day, done: false, stoneVariant: 7 },
   ];
 }
 
